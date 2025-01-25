@@ -129,12 +129,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   float texture_width = appdata->gameboard->w;
   float texture_height = appdata->gameboard->h;
 
-  SDL_FRect img_rect = {.x = appdata->global_x + (screen_width / 2.f - texture_width / 2)
-                             + (texture_width - texture_width * scale) / 2,
-                        .y = appdata->global_y + (screen_height / 2.f - texture_height / 2)
-                             + (texture_height - texture_height * scale) / 2,
+  SDL_FRect img_rect = {.x = appdata->global_x + (screen_width / 2.f),
+                        .y = appdata->global_y + (screen_height / 2.f),
                         .w = texture_width * scale,
                         .h = texture_height * scale};
+
+  SDL_RenderTexture(renderer, appdata->gameboard, NULL, &img_rect);
+
   SDL_RenderTexture(renderer, appdata->gameboard, NULL, &img_rect);
   // ==================================
 
