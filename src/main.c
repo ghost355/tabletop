@@ -17,6 +17,7 @@ typedef struct AppData {
   TTF_Font *font;
   float scale;
   SDL_Texture *gameboard;
+  float global_x, global_y;
 } AppData;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
@@ -32,6 +33,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   *appstate = appdata;
 
   appdata->scale = 0.5f;
+  appdata->global_x = 0;
+  appdata->global_y = 0;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -74,11 +77,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   AppData *appdata = (AppData *)appstate;
-
   float factor = 0.01;
   float future_scale;
   float max_zoom = 0.2; // 20% of image is maximal zoom
-  //
+
   switch (event->type) {
 
     case (SDL_EVENT_QUIT):
@@ -95,6 +97,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         default:
           break;
       }
+
     case (SDL_EVENT_MOUSE_WHEEL):
       future_scale = appdata->scale + event->wheel.y * factor;
 
@@ -105,7 +108,13 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         break;
       }
     case (SDL_EVENT_MOUSE_MOTION):
-      break;
+      if ((event->motion.xrel != 0 || event->motion.yrel != 0)
+          && (event->motion.state == SDL_BUTTON_LEFT)) {
+        appdata->global_x += event->motion.xrel * appdata->scale * 5;
+        appdata->global_y += event->motion.yrel * appdata->scale * 5;
+
+        break;
+      }
   }
   return SDL_APP_CONTINUE;
 }
@@ -120,11 +129,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   float texture_width = appdata->gameboard->w;
   float texture_height = appdata->gameboard->h;
 
-  SDL_FRect img_rect = {
-    .x = (screen_width / 2.f - texture_width / 2) + (texture_width - texture_width * scale) / 2,
-    .y = (screen_height / 2.f - texture_height / 2) + (texture_height - texture_height * scale) / 2,
-    .w = texture_width * scale,
-    .h = texture_height * scale};
+  SDL_FRect img_rect = {.x = appdata->global_x + (screen_width / 2.f - texture_width / 2)
+                             + (texture_width - texture_width * scale) / 2,
+                        .y = appdata->global_y + (screen_height / 2.f - texture_height / 2)
+                             + (texture_height - texture_height * scale) / 2,
+                        .w = texture_width * scale,
+                        .h = texture_height * scale};
   SDL_RenderTexture(renderer, appdata->gameboard, NULL, &img_rect);
   // ==================================
 
