@@ -4,7 +4,7 @@ CC = gcc
 # Опции компилятора: 
 # -Wall включает все предупреждения, 
 # а -g добавляет отладочную информацию
-CFLAGS = -Wall -g $(shell pkg-config --cflags $(LIBRARY))
+CFLAGS =  -Wall -g $(shell pkg-config --cflags $(LIBRARY))
 
 # Опции линковщика
 LDFLAGS = $(shell pkg-config --libs $(LIBRARY))

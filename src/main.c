@@ -74,7 +74,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   AppData *appdata = (AppData *)appstate;
+
+  float factor = 0.01;
+  float future_scale;
+  float max_zoom = 0.2; // 20% of image is maximal zoom
+  //
   switch (event->type) {
+
     case (SDL_EVENT_QUIT):
       return SDL_APP_SUCCESS;
       break;
@@ -83,26 +89,24 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
       switch (event->key.key) {
         case (SDLK_ESCAPE):
+        case (SDLK_Q):
           return SDL_APP_SUCCESS;
           break;
         default:
           break;
       }
-    case (SDL_EVENT_MOUSE_WHEEL): {
-
-      float factor = 0.01;
-      float future_scale = appdata->scale + event->wheel.y * factor;
-      float max_zoom = 0.2; // 20% of image is maximal zoom
+    case (SDL_EVENT_MOUSE_WHEEL):
+      future_scale = appdata->scale + event->wheel.y * factor;
 
       if ((future_scale * appdata->gameboard->h) >= screen_height
           && (future_scale * appdata->gameboard->h) * max_zoom <= screen_height) {
         appdata->scale = future_scale;
-      }
-      default:
-        break;
-    }
-  }
 
+        break;
+      }
+    case (SDL_EVENT_MOUSE_MOTION):
+      break;
+  }
   return SDL_APP_CONTINUE;
 }
 
