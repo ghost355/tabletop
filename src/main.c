@@ -1,6 +1,5 @@
-#include "SDL3/SDL_init.h"
-#include "SDL3/SDL_mouse.h"
 #include "SDL3/SDL_render.h"
+#include "SDL3/SDL_surface.h"
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -12,13 +11,12 @@
 #define screen_width  1280
 #define screen_height 720
 
-void draw_grid(SDL_Renderer *renderer, float scale);
-
 typedef struct AppData {
   SDL_Window *window;
   SDL_Renderer *renderer;
   TTF_Font *font;
   float scale;
+  SDL_Texture *gameboard;
 } AppData;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
@@ -30,9 +28,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     return SDL_APP_FAILURE;
   }
 
-  *appdata       = (AppData){.window = NULL, .renderer = NULL, .font = NULL};
-  *appstate      = appdata;
-  appdata->scale = 1.0f;
+  *appdata = (AppData){.window = NULL, .renderer = NULL, .font = NULL};
+  *appstate = appdata;
+
+  appdata->scale = 0.5f;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -49,11 +48,26 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_Log("TTF_Init failed: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
-  int img_flags = IMG_INIT_PNG; // IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF
+  int img_flags = IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF;
   if (!(IMG_Init(img_flags) & img_flags)) {
     SDL_Log("Image_Init failed: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
+  // Load image
+  char *img_path = "assets/tabletop.png";
+  SDL_Surface *img_surface = IMG_Load(img_path);
+  if (!img_surface) {
+    SDL_Log("IMG_Load failed: %s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  appdata->gameboard = SDL_CreateTextureFromSurface(appdata->renderer, img_surface);
+  if (!appdata->gameboard) {
+    SDL_Log("SDL_CreateTextureFromSurface failed: %s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+  SDL_DestroySurface(img_surface);
+
   // TODO add font init
   return SDL_APP_CONTINUE;
 }
@@ -75,8 +89,15 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
           break;
       }
     case (SDL_EVENT_MOUSE_WHEEL): {
-      float scale = event->wheel.y;
-      appdata->scale += scale;
+
+      float factor = 0.01;
+      float future_scale = appdata->scale + event->wheel.y * factor;
+      float max_zoom = 0.2; // 20% of image is maximal zoom
+
+      if ((future_scale * appdata->gameboard->h) >= screen_height
+          && (future_scale * appdata->gameboard->h) * max_zoom <= screen_height) {
+        appdata->scale = future_scale;
+      }
       default:
         break;
     }
@@ -86,15 +107,24 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
-  AppData *appdata       = (AppData *)appstate;
+  AppData *appdata = (AppData *)appstate;
   SDL_Renderer *renderer = appdata->renderer;
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
+  // ======== Draw here ==============
+  float scale = appdata->scale;
+  float texture_width = appdata->gameboard->w;
+  float texture_height = appdata->gameboard->h;
 
-  draw_grid(renderer, appdata->scale);
+  SDL_FRect img_rect = {
+    .x = (screen_width / 2.f - texture_width / 2) + (texture_width - texture_width * scale) / 2,
+    .y = (screen_height / 2.f - texture_height / 2) + (texture_height - texture_height * scale) / 2,
+    .w = texture_width * scale,
+    .h = texture_height * scale};
+  SDL_RenderTexture(renderer, appdata->gameboard, NULL, &img_rect);
+  // ==================================
 
   SDL_RenderPresent(renderer);
-
   SDL_Delay(1000 / 60); // 60 FPS
 
   return SDL_APP_CONTINUE;
@@ -104,33 +134,10 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
   AppData *appdata = (AppData *)appstate;
   SDL_DestroyRenderer(appdata->renderer);
   SDL_DestroyWindow(appdata->window);
+  SDL_DestroyTexture(appdata->gameboard);
   TTF_Quit();
   IMG_Quit();
+  free(appdata);
 }
 
 // =================================================================================
-
-void draw_grid(SDL_Renderer *renderer, float scale) {
-  int cellSize    = 25;
-  int bigCellSize = 10 * cellSize;
-
-  for (int x = 0; x < screen_width; x += bigCellSize) {
-    for (int y = 0; y < screen_height; y += bigCellSize) {
-      // Рисуем большой квадрат
-      SDL_FRect rect = {x, y, bigCellSize * scale, bigCellSize * scale};
-      SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255); // Серый цвет для больших квадратов
-      SDL_RenderRect(renderer, &rect);
-
-      // Рисуем маленькие квадраты внутри большого квадрата
-      for (int i = 0; i < 100; ++i) {
-        for (int j = 0; j < 100; ++j) {
-          SDL_FRect smallRect
-            = {x + i * cellSize, y + j * cellSize, cellSize * scale, cellSize * scale};
-          SDL_SetRenderDrawColor(
-            renderer, 220, 220, 220, 125); // Светло-серый цвет для маленьких квадратов
-          SDL_RenderRect(renderer, &smallRect);
-        }
-      }
-    }
-  }
-}
