@@ -1,3 +1,4 @@
+#include "SDL3/SDL_init.h"
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -9,7 +10,7 @@
 #define screen_width     1201
 #define screen_height    709
 #define border_move_zone 10
-#define motion_speed     300
+#define motion_speed     2000
 #define target_fps       60.0
 #define max_frame_time   (1.0 / target_fps)
 
@@ -32,8 +33,8 @@ typedef struct AppData {
 
 void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y);
 void check_border_out(AppData *data);
-void pan_on_edge(AppData *data);
-void move_world(AppData *data);
+bool pan_with_screen_edge_touch(AppData *data);
+void pan_world(AppData *data);
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
@@ -106,24 +107,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   AppData *data = (AppData *)appstate;
 
   switch (event->type) {
+    case SDL_EVENT_QUIT:
+      return SDL_APP_SUCCESS;
+      break;
     case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
         case SDLK_ESCAPE:
         case SDLK_Q:
           return SDL_APP_SUCCESS;
-          break;
-
-        case SDLK_W:
-          data->pan_direction = Down;
-          break;
-        case SDLK_S:
-          data->pan_direction = Up;
-          break;
-        case SDLK_A:
-          data->pan_direction = Left;
-          break;
-        case SDLK_D:
-          data->pan_direction = Right;
           break;
       }
       break;
@@ -158,6 +149,16 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 SDL_AppResult SDL_AppIterate(void *appstate) {
   AppData *data = (AppData *)appstate;
   SDL_Renderer *renderer = data->renderer;
+  const bool *keyStates = SDL_GetKeyboardState(NULL);
+  if (keyStates[SDL_SCANCODE_W]) {
+    data->pan_direction = Down;
+  } else if (keyStates[SDL_SCANCODE_S]) {
+    data->pan_direction = Up;
+  } else if (keyStates[SDL_SCANCODE_A]) {
+    data->pan_direction = Left;
+  } else if (keyStates[SDL_SCANCODE_D]) {
+    data->pan_direction = Right;
+  }
 
   // Delta Time SECTION
   Uint64 currentTime = SDL_GetPerformanceCounter();
@@ -170,8 +171,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   while (data->dt >= max_frame_time) {
     // Update game logic here using deltaTime
 
-    pan_on_edge(data);
-    move_world(data);
+    pan_world(data);
     check_border_out(data);
 
     data->dt -= max_frame_time;
@@ -243,7 +243,7 @@ void check_border_out(AppData *data) {
   }
 }
 
-void pan_on_edge(AppData *data) {
+bool pan_with_screen_edge_touch(AppData *data) {
 
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
@@ -272,22 +272,26 @@ void pan_on_edge(AppData *data) {
       data->pan_direction = Up;
       // data->offset_y -= motion_speed * 2 * data->scale * data->dt;
     }
+    return true;
   }
+  return false;
 }
 
-void move_world(AppData *data) {
+void pan_world(AppData *data) {
+  pan_with_screen_edge_touch(data);
+
   switch (data->pan_direction) {
     case (Right):
-      data->offset_x -= motion_speed * data->dt;
+      data->offset_x -= motion_speed * data->scale * data->dt;
       break;
     case (Left):
-      data->offset_x += motion_speed * data->dt;
+      data->offset_x += motion_speed * data->scale * data->dt;
       break;
     case (Up):
-      data->offset_y -= motion_speed * data->dt;
+      data->offset_y -= motion_speed * data->scale * data->dt;
       break;
     case (Down):
-      data->offset_y += motion_speed * data->dt;
+      data->offset_y += motion_speed * data->scale * data->dt;
       break;
     default:
       break;
