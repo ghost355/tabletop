@@ -1,4 +1,5 @@
 #include "SDL3/SDL_init.h"
+#include "SDL3/SDL_scancode.h"
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -14,7 +15,7 @@
 #define target_fps       60.0
 #define max_frame_time   (1.0 / target_fps)
 
-typedef enum { Up, Down, Left, Right, None } PanDirection;
+typedef enum { N, NE, E, SE, S, SW, W, NW, NoDirection } PanDirection;
 
 typedef struct AppData {
   SDL_Window *window;
@@ -57,7 +58,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->dt = 0.0;
   data->last_time = SDL_GetPerformanceCounter();
   data->in_window = false;
-  data->pan_direction = None;
+  data->pan_direction = NoDirection;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -151,15 +152,29 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_Renderer *renderer = data->renderer;
   const bool *keyStates = SDL_GetKeyboardState(NULL);
   if (keyStates[SDL_SCANCODE_W]) {
-    data->pan_direction = Down;
-  } else if (keyStates[SDL_SCANCODE_S]) {
-    data->pan_direction = Up;
-  } else if (keyStates[SDL_SCANCODE_A]) {
-    data->pan_direction = Left;
-  } else if (keyStates[SDL_SCANCODE_D]) {
-    data->pan_direction = Right;
+    data->pan_direction = S;
   }
-
+  if (keyStates[SDL_SCANCODE_S]) {
+    data->pan_direction = N;
+  }
+  if (keyStates[SDL_SCANCODE_A]) {
+    data->pan_direction = W;
+  }
+  if (keyStates[SDL_SCANCODE_D]) {
+    data->pan_direction = E;
+  }
+  if (keyStates[SDL_SCANCODE_S] && keyStates[SDL_SCANCODE_A]) {
+    data->pan_direction = NW;
+  }
+  if (keyStates[SDL_SCANCODE_W] && keyStates[SDL_SCANCODE_A]) {
+    data->pan_direction = SW;
+  }
+  if (keyStates[SDL_SCANCODE_S] && keyStates[SDL_SCANCODE_D]) {
+    data->pan_direction = NE;
+  }
+  if (keyStates[SDL_SCANCODE_W] && keyStates[SDL_SCANCODE_D]) {
+    data->pan_direction = SE;
+  }
   // Delta Time SECTION
   Uint64 currentTime = SDL_GetPerformanceCounter();
   Uint64 elapsedTicks = currentTime - data->last_time;
@@ -247,29 +262,29 @@ bool pan_with_screen_edge_touch(AppData *data) {
 
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
-      data->pan_direction = Left;
+      data->pan_direction = W;
     }
     if (data->cursor_x >= screen_width - border_move_zone) {
-      data->pan_direction = Right;
+      data->pan_direction = E;
     }
     if (data->cursor_x <= border_move_zone * 0.2) {
-      data->pan_direction = Left;
+      data->pan_direction = W;
     }
     if (data->cursor_x >= screen_width - border_move_zone * 0.2) {
-      data->pan_direction = Right;
+      data->pan_direction = E;
     }
 
     if (data->cursor_y <= border_move_zone) {
-      data->pan_direction = Down;
+      data->pan_direction = S;
     }
     if (data->cursor_y >= screen_height - border_move_zone) {
-      data->pan_direction = Up;
+      data->pan_direction = N;
     }
     if (data->cursor_y <= border_move_zone * 0.2) {
-      data->pan_direction = Down;
+      data->pan_direction = S;
     }
     if (data->cursor_y >= screen_height - border_move_zone * 0.2) {
-      data->pan_direction = Up;
+      data->pan_direction = N;
       // data->offset_y -= motion_speed * 2 * data->scale * data->dt;
     }
     return true;
@@ -281,20 +296,39 @@ void pan_world(AppData *data) {
   pan_with_screen_edge_touch(data);
 
   switch (data->pan_direction) {
-    case (Right):
+    case E:
       data->offset_x -= motion_speed * data->scale * data->dt;
       break;
-    case (Left):
+    case W:
       data->offset_x += motion_speed * data->scale * data->dt;
       break;
-    case (Up):
+    case N:
       data->offset_y -= motion_speed * data->scale * data->dt;
       break;
-    case (Down):
+    case S:
       data->offset_y += motion_speed * data->scale * data->dt;
       break;
+    case NW:
+      data->offset_y -= motion_speed * data->scale * data->dt;
+      data->offset_x += motion_speed * data->scale * data->dt;
+      break;
+    case SW:
+      data->offset_x += motion_speed * data->scale * data->dt;
+      data->offset_y += motion_speed * data->scale * data->dt;
+      break;
+    case SE:
+      data->offset_y += motion_speed * data->scale * data->dt;
+      data->offset_x -= motion_speed * data->scale * data->dt;
+      break;
+    case NE:
+      data->offset_y -= motion_speed * data->scale * data->dt;
+      data->offset_x -= motion_speed * data->scale * data->dt;
+      break;
+
     default:
       break;
   }
-  data->pan_direction = None;
+  data->pan_direction = NoDirection;
 }
+
+// TODO: сделать одновременные панорамирование мира - движение по диагонали
