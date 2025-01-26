@@ -8,8 +8,8 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdlib.h>
 
-#define screen_width  1280
-#define screen_height 720
+#define screen_width  1201
+#define screen_height 709
 
 typedef struct AppData {
   SDL_Window *window;
@@ -115,6 +115,19 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     default:
       break;
   }
+  if (data->offset_x >= 0) {
+    data->offset_x = 0;
+  }
+  if (data->offset_y >= 0) {
+    data->offset_y = 0;
+  }
+  if (data->offset_x + data->scale * data->gameboard->w <= screen_width) {
+    data->offset_x = screen_width - data->scale * data->gameboard->w;
+  }
+  if (data->offset_y + data->scale * data->gameboard->h <= screen_height) {
+    data->offset_y = screen_height - data->scale * data->gameboard->h;
+  }
+
   return SDL_APP_CONTINUE;
 }
 
@@ -132,6 +145,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                         .y = data->offset_y,
                         .w = texture_width * scale,
                         .h = texture_height * scale};
+
   SDL_RenderTexture(renderer, data->gameboard, NULL, &img_rect);
   // ==================================
 
