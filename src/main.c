@@ -273,18 +273,19 @@ void pan_with_screen_edge_touch(AppData *data) {
     if (data->cursor_y >= screen_height - border_move_zone) {
       data->pan_direction = S;
     }
-    // if (data->cursor_x <= border_move_zone && data->cursor_y <= border_move_zone) {
-    //   data->pan_direction = NW;
-    // }
-    // if (data->cursor_x >= screen_width - border_move_zone) {
-    //   data->pan_direction = NE;
-    // }
-    // if (data->cursor_y <= border_move_zone) {
-    //   data->pan_direction = SW;
-    // }
-    // if (data->cursor_y >= screen_height - border_move_zone) {
-    //   data->pan_direction = NE;
-    // }
+    if (data->cursor_x <= border_move_zone && data->cursor_y <= border_move_zone) {
+      data->pan_direction = NW;
+    }
+    if (data->cursor_x >= screen_width - border_move_zone && data->cursor_y <= border_move_zone) {
+      data->pan_direction = NE;
+    }
+    if (data->cursor_x <= border_move_zone && data->cursor_y >= screen_height - border_move_zone) {
+      data->pan_direction = SW;
+    }
+    if (data->cursor_x >= screen_width - border_move_zone
+        && data->cursor_y >= screen_height - border_move_zone) {
+      data->pan_direction = SE;
+    }
   }
 }
 
