@@ -8,8 +8,9 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdlib.h>
 
-#define screen_width     1201
-#define screen_height    709
+#define screen_width  (1201 * 1.5)
+#define screen_height (709 * 1.5)
+
 #define border_move_zone 10
 #define motion_speed     2000
 #define target_fps       60.0
@@ -228,8 +229,8 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
 
 void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y) {
   float new_scale = data->scale * zoom_factor;
-  if (new_scale < 0.165f) {
-    new_scale = 0.165f;
+  if (new_scale <= screen_height / data->gameboard->h) {
+    new_scale = screen_height / data->gameboard->h;
   }
   if (new_scale > 1.6f) {
     new_scale = 1.6f;
@@ -327,5 +328,3 @@ void pan_world(AppData *data) {
   }
   data->pan_direction = NoDirection;
 }
-
-// TODO: сделать одновременные панорамирование мира - движение по диагонали
