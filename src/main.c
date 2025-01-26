@@ -34,7 +34,7 @@ typedef struct AppData {
 
 void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y);
 void check_border_out(AppData *data);
-bool pan_with_screen_edge_touch(AppData *data);
+void pan_with_screen_edge_touch(AppData *data);
 void pan_world(AppData *data);
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
@@ -152,10 +152,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_Renderer *renderer = data->renderer;
   const bool *keyStates = SDL_GetKeyboardState(NULL);
   if (keyStates[SDL_SCANCODE_W]) {
-    data->pan_direction = S;
+    data->pan_direction = N;
   }
   if (keyStates[SDL_SCANCODE_S]) {
-    data->pan_direction = N;
+    data->pan_direction = S;
   }
   if (keyStates[SDL_SCANCODE_A]) {
     data->pan_direction = W;
@@ -164,16 +164,16 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     data->pan_direction = E;
   }
   if (keyStates[SDL_SCANCODE_S] && keyStates[SDL_SCANCODE_A]) {
-    data->pan_direction = NW;
-  }
-  if (keyStates[SDL_SCANCODE_W] && keyStates[SDL_SCANCODE_A]) {
     data->pan_direction = SW;
   }
+  if (keyStates[SDL_SCANCODE_W] && keyStates[SDL_SCANCODE_A]) {
+    data->pan_direction = NW;
+  }
   if (keyStates[SDL_SCANCODE_S] && keyStates[SDL_SCANCODE_D]) {
-    data->pan_direction = NE;
+    data->pan_direction = SE;
   }
   if (keyStates[SDL_SCANCODE_W] && keyStates[SDL_SCANCODE_D]) {
-    data->pan_direction = SE;
+    data->pan_direction = NE;
   }
   // Delta Time SECTION
   Uint64 currentTime = SDL_GetPerformanceCounter();
@@ -258,7 +258,7 @@ void check_border_out(AppData *data) {
   }
 }
 
-bool pan_with_screen_edge_touch(AppData *data) {
+void pan_with_screen_edge_touch(AppData *data) {
 
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
@@ -267,29 +267,25 @@ bool pan_with_screen_edge_touch(AppData *data) {
     if (data->cursor_x >= screen_width - border_move_zone) {
       data->pan_direction = E;
     }
-    if (data->cursor_x <= border_move_zone * 0.2) {
-      data->pan_direction = W;
-    }
-    if (data->cursor_x >= screen_width - border_move_zone * 0.2) {
-      data->pan_direction = E;
-    }
-
     if (data->cursor_y <= border_move_zone) {
-      data->pan_direction = S;
+      data->pan_direction = N;
     }
     if (data->cursor_y >= screen_height - border_move_zone) {
-      data->pan_direction = N;
-    }
-    if (data->cursor_y <= border_move_zone * 0.2) {
       data->pan_direction = S;
     }
-    if (data->cursor_y >= screen_height - border_move_zone * 0.2) {
-      data->pan_direction = N;
-      // data->offset_y -= motion_speed * 2 * data->scale * data->dt;
-    }
-    return true;
+    // if (data->cursor_x <= border_move_zone && data->cursor_y <= border_move_zone) {
+    //   data->pan_direction = NW;
+    // }
+    // if (data->cursor_x >= screen_width - border_move_zone) {
+    //   data->pan_direction = NE;
+    // }
+    // if (data->cursor_y <= border_move_zone) {
+    //   data->pan_direction = SW;
+    // }
+    // if (data->cursor_y >= screen_height - border_move_zone) {
+    //   data->pan_direction = NE;
+    // }
   }
-  return false;
 }
 
 void pan_world(AppData *data) {
@@ -302,25 +298,25 @@ void pan_world(AppData *data) {
     case W:
       data->offset_x += motion_speed * data->scale * data->dt;
       break;
-    case N:
-      data->offset_y -= motion_speed * data->scale * data->dt;
-      break;
     case S:
-      data->offset_y += motion_speed * data->scale * data->dt;
-      break;
-    case NW:
       data->offset_y -= motion_speed * data->scale * data->dt;
-      data->offset_x += motion_speed * data->scale * data->dt;
+      break;
+    case N:
+      data->offset_y += motion_speed * data->scale * data->dt;
       break;
     case SW:
+      data->offset_y -= motion_speed * data->scale * data->dt;
+      data->offset_x += motion_speed * data->scale * data->dt;
+      break;
+    case NW:
       data->offset_x += motion_speed * data->scale * data->dt;
       data->offset_y += motion_speed * data->scale * data->dt;
       break;
-    case SE:
+    case NE:
       data->offset_y += motion_speed * data->scale * data->dt;
       data->offset_x -= motion_speed * data->scale * data->dt;
       break;
-    case NE:
+    case SE:
       data->offset_y -= motion_speed * data->scale * data->dt;
       data->offset_x -= motion_speed * data->scale * data->dt;
       break;
