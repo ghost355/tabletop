@@ -1,5 +1,6 @@
 #include "SDL3/SDL_render.h"
 #include "SDL3/SDL_surface.h"
+#include "SDL3/SDL_timer.h"
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -11,6 +12,9 @@
 #define screen_width     1201
 #define screen_height    709
 #define border_move_zone 10
+#define motion_speed     200
+#define target_fps       60.0
+#define max_frame_time   (1.0 / target_fps)
 
 typedef struct AppData {
   SDL_Window *window;
@@ -20,8 +24,9 @@ typedef struct AppData {
   SDL_Texture *gameboard;
   float offset_x, offset_y;
   float motion_factor;
-  int motion_speed;
   int cursor_x, cursor_y;
+  double dt;
+  Uint64 last_time;
 } AppData;
 
 void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y);
@@ -44,9 +49,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->offset_x = 0;
   data->offset_y = 0;
   data->motion_factor = 3.0f;
-  data->motion_speed = 10;
   data->cursor_x = 0;
   data->cursor_y = 0;
+  data->dt = 0.0;
+  data->last_time = SDL_GetPerformanceCounter();
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -59,6 +65,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_Log("SDL_CreateRenderer failed: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
+  if (!(SDL_SetRenderVSync(data->renderer, 1))) {
+    SDL_Log("SDL_SetRenderVSync failed: %s", SDL_GetError());
+  }
+
   if (!(TTF_Init())) {
     SDL_Log("TTF_Init failed: %s", SDL_GetError());
     return SDL_APP_FAILURE;
@@ -133,11 +143,23 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   AppData *data = (AppData *)appstate;
   SDL_Renderer *renderer = data->renderer;
 
-  // ===== UPDATE SECTION ============
+  // Delta Time SECTION
+  Uint64 currentTime = SDL_GetPerformanceCounter();
+  Uint64 elapsedTicks = currentTime - data->last_time;
+  data->last_time = currentTime;
 
-  pan_on_edge(data);
+  double elapsedSeconds = (double)elapsedTicks / SDL_GetPerformanceFrequency();
+  data->dt += elapsedSeconds;
 
-  check_border_out(data);
+  while (data->dt >= max_frame_time) {
+    // Update game logic here using deltaTime
+
+    pan_on_edge(data);
+
+    check_border_out(data);
+
+    data->dt -= max_frame_time;
+  }
 
   // ===== RENDER SECTION ============
 
@@ -157,7 +179,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   // ==================================
 
   SDL_RenderPresent(renderer);
-  SDL_Delay(1000 / 60); // 60 FPS
 
   return SDL_APP_CONTINUE;
 }
@@ -208,27 +229,27 @@ void check_border_out(AppData *data) {
 
 void pan_on_edge(AppData *data) {
   if (data->cursor_x <= border_move_zone) {
-    data->offset_x += data->motion_speed * data->scale;
+    data->offset_x += motion_speed * data->scale * data->dt;
   }
   if (data->cursor_x >= screen_width - border_move_zone) {
-    data->offset_x -= data->motion_speed * data->scale;
+    data->offset_x -= motion_speed * data->scale * data->dt;
   }
   if (data->cursor_y <= border_move_zone) {
-    data->offset_y += data->motion_speed * data->scale;
+    data->offset_y += motion_speed * data->scale * data->dt;
   }
   if (data->cursor_y >= screen_height - border_move_zone) {
-    data->offset_y -= data->motion_speed * data->scale;
+    data->offset_y -= motion_speed * data->scale * data->dt;
   }
   if (data->cursor_x <= border_move_zone * 0.2) {
-    data->offset_x += data->motion_speed * 2 * data->scale;
+    data->offset_x += motion_speed * 2 * data->scale * data->dt;
   }
   if (data->cursor_x >= screen_width - border_move_zone * 0.2) {
-    data->offset_x -= data->motion_speed * 2 * data->scale;
+    data->offset_x -= motion_speed * 2 * data->scale * data->dt;
   }
   if (data->cursor_y <= border_move_zone * 0.2) {
-    data->offset_y += data->motion_speed * 2 * data->scale;
+    data->offset_y += motion_speed * 2 * data->scale * data->dt;
   }
   if (data->cursor_y >= screen_height - border_move_zone * 0.2) {
-    data->offset_y -= data->motion_speed * 2 * data->scale;
+    data->offset_y -= motion_speed * 2 * data->scale * data->dt;
   }
 }
