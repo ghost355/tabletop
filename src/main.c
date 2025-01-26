@@ -1,11 +1,3 @@
-#include "SDL3/SDL_events.h"
-#include "SDL3/SDL_log.h"
-#include "SDL3/SDL_mouse.h"
-#include "SDL3/SDL_oldnames.h"
-#include "SDL3/SDL_render.h"
-#include "SDL3/SDL_surface.h"
-#include "SDL3/SDL_timer.h"
-#include <stdio.h>
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -17,9 +9,11 @@
 #define screen_width     1201
 #define screen_height    709
 #define border_move_zone 10
-#define motion_speed     200
+#define motion_speed     300
 #define target_fps       60.0
 #define max_frame_time   (1.0 / target_fps)
+
+typedef enum { Up, Down, Left, Right, None } PanDirection;
 
 typedef struct AppData {
   SDL_Window *window;
@@ -33,11 +27,13 @@ typedef struct AppData {
   double dt;
   Uint64 last_time;
   bool in_window;
+  PanDirection pan_direction;
 } AppData;
 
 void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y);
 void check_border_out(AppData *data);
 void pan_on_edge(AppData *data);
+void move_world(AppData *data);
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
@@ -60,6 +56,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->dt = 0.0;
   data->last_time = SDL_GetPerformanceCounter();
   data->in_window = false;
+  data->pan_direction = None;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -105,23 +102,33 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 }
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
+
   AppData *data = (AppData *)appstate;
 
   switch (event->type) {
-    case (SDL_EVENT_QUIT):
-      return SDL_APP_SUCCESS;
-      break;
-
-    case (SDL_EVENT_KEY_DOWN):
+    case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
-        case (SDLK_ESCAPE):
-        case (SDLK_Q):
+        case SDLK_ESCAPE:
+        case SDLK_Q:
           return SDL_APP_SUCCESS;
           break;
-        default:
+
+        case SDLK_W:
+          data->pan_direction = Down;
+          break;
+        case SDLK_S:
+          data->pan_direction = Up;
+          break;
+        case SDLK_A:
+          data->pan_direction = Left;
+          break;
+        case SDLK_D:
+          data->pan_direction = Right;
           break;
       }
-    case (SDL_EVENT_MOUSE_WHEEL):
+      break;
+
+    case SDL_EVENT_MOUSE_WHEEL:
       if (event->wheel.y > 0) {
         zoom_to_cursor(data, 1.1f, event->wheel.mouse_x, event->wheel.mouse_y);
       } else if (event->wheel.y < 0) {
@@ -129,8 +136,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       }
       break;
 
-    case (SDL_EVENT_MOUSE_MOTION):
-
+    case SDL_EVENT_MOUSE_MOTION:
       data->cursor_x = event->motion.x;
       data->cursor_y = event->motion.y;
 
@@ -139,11 +145,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         data->offset_y += event->motion.yrel * data->scale * data->motion_factor;
       }
       break;
-    case (SDL_EVENT_WINDOW_MOUSE_LEAVE):
-    case (SDL_EVENT_WINDOW_MOUSE_ENTER):
+
+    case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+    case SDL_EVENT_WINDOW_MOUSE_ENTER:
       data->in_window = !data->in_window;
-      break;
-    default:
       break;
   }
 
@@ -166,7 +171,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     // Update game logic here using deltaTime
 
     pan_on_edge(data);
-
+    move_world(data);
     check_border_out(data);
 
     data->dt -= max_frame_time;
@@ -242,29 +247,50 @@ void pan_on_edge(AppData *data) {
 
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
-      data->offset_x += motion_speed * data->scale * data->dt;
+      data->pan_direction = Left;
     }
     if (data->cursor_x >= screen_width - border_move_zone) {
-      data->offset_x -= motion_speed * data->scale * data->dt;
+      data->pan_direction = Right;
     }
     if (data->cursor_x <= border_move_zone * 0.2) {
-      data->offset_x += motion_speed * 2 * data->scale * data->dt;
+      data->pan_direction = Left;
     }
     if (data->cursor_x >= screen_width - border_move_zone * 0.2) {
-      data->offset_x -= motion_speed * 2 * data->scale * data->dt;
+      data->pan_direction = Right;
     }
 
     if (data->cursor_y <= border_move_zone) {
-      data->offset_y += motion_speed * data->scale * data->dt;
+      data->pan_direction = Down;
     }
     if (data->cursor_y >= screen_height - border_move_zone) {
-      data->offset_y -= motion_speed * data->scale * data->dt;
+      data->pan_direction = Up;
     }
     if (data->cursor_y <= border_move_zone * 0.2) {
-      data->offset_y += motion_speed * 2 * data->scale * data->dt;
+      data->pan_direction = Down;
     }
     if (data->cursor_y >= screen_height - border_move_zone * 0.2) {
-      data->offset_y -= motion_speed * 2 * data->scale * data->dt;
+      data->pan_direction = Up;
+      // data->offset_y -= motion_speed * 2 * data->scale * data->dt;
     }
   }
+}
+
+void move_world(AppData *data) {
+  switch (data->pan_direction) {
+    case (Right):
+      data->offset_x -= motion_speed * data->dt;
+      break;
+    case (Left):
+      data->offset_x += motion_speed * data->dt;
+      break;
+    case (Up):
+      data->offset_y -= motion_speed * data->dt;
+      break;
+    case (Down):
+      data->offset_y += motion_speed * data->dt;
+      break;
+    default:
+      break;
+  }
+  data->pan_direction = None;
 }
