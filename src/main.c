@@ -22,6 +22,7 @@ typedef struct AppData {
 } AppData;
 
 void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y);
+void check_border_out(AppData *data);
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
@@ -115,18 +116,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     default:
       break;
   }
-  if (data->offset_x >= 0) {
-    data->offset_x = 0;
-  }
-  if (data->offset_y >= 0) {
-    data->offset_y = 0;
-  }
-  if (data->offset_x + data->scale * data->gameboard->w <= screen_width) {
-    data->offset_x = screen_width - data->scale * data->gameboard->w;
-  }
-  if (data->offset_y + data->scale * data->gameboard->h <= screen_height) {
-    data->offset_y = screen_height - data->scale * data->gameboard->h;
-  }
+  check_border_out(data);
 
   return SDL_APP_CONTINUE;
 }
@@ -182,4 +172,19 @@ void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y
   data->offset_y = cursor_y - relative_y * new_scale;
 
   data->scale = new_scale;
+}
+
+void check_border_out(AppData *data) {
+  if (data->offset_x >= 0) {
+    data->offset_x = 0;
+  }
+  if (data->offset_y >= 0) {
+    data->offset_y = 0;
+  }
+  if (data->offset_x + data->scale * data->gameboard->w <= screen_width) {
+    data->offset_x = screen_width - data->scale * data->gameboard->w;
+  }
+  if (data->offset_y + data->scale * data->gameboard->h <= screen_height) {
+    data->offset_y = screen_height - data->scale * data->gameboard->h;
+  }
 }
