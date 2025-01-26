@@ -1,6 +1,11 @@
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_log.h"
+#include "SDL3/SDL_mouse.h"
+#include "SDL3/SDL_oldnames.h"
 #include "SDL3/SDL_render.h"
 #include "SDL3/SDL_surface.h"
 #include "SDL3/SDL_timer.h"
+#include <stdio.h>
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -27,6 +32,7 @@ typedef struct AppData {
   int cursor_x, cursor_y;
   double dt;
   Uint64 last_time;
+  bool in_window;
 } AppData;
 
 void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y);
@@ -53,6 +59,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->cursor_y = 0;
   data->dt = 0.0;
   data->last_time = SDL_GetPerformanceCounter();
+  data->in_window = false;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -73,7 +80,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     SDL_Log("TTF_Init failed: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
-  int img_flags = IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_TIF;
+  int img_flags = IMG_INIT_PNG | IMG_INIT_JPG;
   if (!(IMG_Init(img_flags) & img_flags)) {
     SDL_Log("Image_Init failed: %s", SDL_GetError());
     return SDL_APP_FAILURE;
@@ -131,6 +138,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         data->offset_x += event->motion.xrel * data->scale * data->motion_factor;
         data->offset_y += event->motion.yrel * data->scale * data->motion_factor;
       }
+      break;
+    case (SDL_EVENT_WINDOW_MOUSE_LEAVE):
+    case (SDL_EVENT_WINDOW_MOUSE_ENTER):
+      data->in_window = !data->in_window;
       break;
     default:
       break;
@@ -228,28 +239,32 @@ void check_border_out(AppData *data) {
 }
 
 void pan_on_edge(AppData *data) {
-  if (data->cursor_x <= border_move_zone) {
-    data->offset_x += motion_speed * data->scale * data->dt;
-  }
-  if (data->cursor_x >= screen_width - border_move_zone) {
-    data->offset_x -= motion_speed * data->scale * data->dt;
-  }
-  if (data->cursor_y <= border_move_zone) {
-    data->offset_y += motion_speed * data->scale * data->dt;
-  }
-  if (data->cursor_y >= screen_height - border_move_zone) {
-    data->offset_y -= motion_speed * data->scale * data->dt;
-  }
-  if (data->cursor_x <= border_move_zone * 0.2) {
-    data->offset_x += motion_speed * 2 * data->scale * data->dt;
-  }
-  if (data->cursor_x >= screen_width - border_move_zone * 0.2) {
-    data->offset_x -= motion_speed * 2 * data->scale * data->dt;
-  }
-  if (data->cursor_y <= border_move_zone * 0.2) {
-    data->offset_y += motion_speed * 2 * data->scale * data->dt;
-  }
-  if (data->cursor_y >= screen_height - border_move_zone * 0.2) {
-    data->offset_y -= motion_speed * 2 * data->scale * data->dt;
+
+  if (data->in_window) {
+    if (data->cursor_x <= border_move_zone) {
+      data->offset_x += motion_speed * data->scale * data->dt;
+    }
+    if (data->cursor_x >= screen_width - border_move_zone) {
+      data->offset_x -= motion_speed * data->scale * data->dt;
+    }
+    if (data->cursor_x <= border_move_zone * 0.2) {
+      data->offset_x += motion_speed * 2 * data->scale * data->dt;
+    }
+    if (data->cursor_x >= screen_width - border_move_zone * 0.2) {
+      data->offset_x -= motion_speed * 2 * data->scale * data->dt;
+    }
+
+    if (data->cursor_y <= border_move_zone) {
+      data->offset_y += motion_speed * data->scale * data->dt;
+    }
+    if (data->cursor_y >= screen_height - border_move_zone) {
+      data->offset_y -= motion_speed * data->scale * data->dt;
+    }
+    if (data->cursor_y <= border_move_zone * 0.2) {
+      data->offset_y += motion_speed * 2 * data->scale * data->dt;
+    }
+    if (data->cursor_y >= screen_height - border_move_zone * 0.2) {
+      data->offset_y -= motion_speed * 2 * data->scale * data->dt;
+    }
   }
 }
