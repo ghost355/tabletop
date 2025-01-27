@@ -27,6 +27,7 @@ typedef struct AppData {
   float offset_x, offset_y;
   float motion_factor;
   int cursor_x, cursor_y;
+  float wheel_y;
   PanDirection pan_direction;
 
   double dt;
@@ -37,7 +38,7 @@ typedef struct AppData {
 
 // ============ Function declaration =============
 
-void zoom_world(AppData *data, float wheel_y);
+void zoom_world(AppData *data);
 void border_out_control(AppData *data);
 void pan_with_screen_edge_touch(AppData *data);
 void pan_world(AppData *data);
@@ -64,6 +65,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->last_time     = SDL_GetPerformanceCounter();
   data->in_window     = true;
   data->pan_direction = NoDirection;
+  data->wheel_y       = 0;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -111,6 +113,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
   AppData *data = (AppData *)appstate;
+  // TODO: Here will be handle_input(AppData *date)**
 
   switch (event->type) {
     case SDL_EVENT_QUIT:
@@ -126,7 +129,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       break;
 
     case SDL_EVENT_MOUSE_WHEEL:
-      zoom_world(data, event->wheel.y);
+      // NOTE: Is it possible to remove zoom_world to Update Section to update()
+      data->wheel_y = event->wheel.y;
+      // zoom_world(data, event->wheel.y);
       break;
 
     case SDL_EVENT_MOUSE_MOTION:
@@ -134,20 +139,14 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       data->cursor_x = event->motion.x;
       data->cursor_y = event->motion.y;
       break;
-      // if (event->motion.state == SDL_BUTTON_LEFT) {
-      //   data->offset_x += event->motion.xrel * data->scale * data->motion_factor;
-      //   data->offset_y += event->motion.yrel * data->scale * data->motion_factor;
-      // }
-      // break;
 
     case SDL_EVENT_WINDOW_MOUSE_LEAVE:
       data->in_window = false;
-      printf("Mouse Leaved\n");
       break;
     case SDL_EVENT_WINDOW_MOUSE_ENTER:
       data->in_window = true;
-      printf("Mouse Enter\n");
       break;
+
     default:
       break;
   }
@@ -195,6 +194,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     // Update game logic here using deltaTime
 
     pan_world(data);
+    zoom_world(data);
     border_out_control(data);
 
     data->dt -= max_frame_time;
@@ -234,9 +234,9 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
 
 // ============================  Functions  ======================================
 
-void zoom_world(AppData *data, float wheel_y) {
-  if (wheel_y != 0) {
-    float zoom_factor = (wheel_y > 0) ? 1.1f : 0.9f;
+void zoom_world(AppData *data) {
+  if (data->wheel_y != 0) {
+    float zoom_factor = (data->wheel_y > 0) ? 1.1f : 0.9f;
     float new_scale   = data->scale * zoom_factor;
 
     if (new_scale <= (float)screen_height / data->gameboard->h) {
@@ -253,6 +253,7 @@ void zoom_world(AppData *data, float wheel_y) {
 
     data->scale = new_scale;
   }
+  data->wheel_y = 0;
 }
 
 void border_out_control(AppData *data) {
