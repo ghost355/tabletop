@@ -10,7 +10,7 @@
 #define screen_height (709 * 1.5)
 
 #define border_move_zone 10
-#define motion_speed     2000
+#define motion_speed     1000
 #define target_fps       60.0
 #define max_frame_time   (1.0 / target_fps)
 
@@ -255,6 +255,7 @@ PanDirection handle_pan_input(AppData *data) {
 
   PanDirection pan_direction = NoDirection;
 
+  // NOTE: pan with cursor on screen edge
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
       pan_direction = W;
@@ -282,7 +283,7 @@ PanDirection handle_pan_input(AppData *data) {
       pan_direction = SE;
     }
   }
-
+  // NOTE: pan with keys WASD
   if (data->key_states) {
     if (data->key_states[SDL_SCANCODE_W]) {
       pan_direction = N;
