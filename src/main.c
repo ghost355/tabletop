@@ -6,8 +6,8 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdlib.h>
 
-#define screen_width  (1201 * 1.5)
-#define screen_height (709 * 1.5)
+#define screen_width  (1201 * 2)
+#define screen_height (709 * 2)
 
 #define border_move_zone 10
 #define motion_speed     2000
@@ -17,46 +17,52 @@
 typedef enum { N, NE, E, SE, S, SW, W, NW, NoDirection } PanDirection;
 
 typedef struct AppData {
+
   SDL_Window *window;
   SDL_Renderer *renderer;
   TTF_Font *font;
-  float scale;
   SDL_Texture *gameboard;
+
+  float scale;
   float offset_x, offset_y;
   float motion_factor;
   int cursor_x, cursor_y;
+  PanDirection pan_direction;
+
   double dt;
   Uint64 last_time;
+
   bool in_window;
-  PanDirection pan_direction;
 } AppData;
 
-void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y);
-void check_border_out(AppData *data);
+// ============ Function declaration =============
+
+void zoom_world(AppData *data, float wheel_y);
+void border_out_control(AppData *data);
 void pan_with_screen_edge_touch(AppData *data);
 void pan_world(AppData *data);
+
+// ===============================================
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
   AppData *data = malloc(sizeof(AppData));
-
   if (data == NULL) {
     SDL_Log("Failed to allocate memory for AppData");
     return SDL_APP_FAILURE;
   }
 
   *data = (AppData){.window = NULL, .renderer = NULL, .font = NULL};
-  *appstate = data;
 
-  data->scale = screen_height / 4252.0f;
-  data->offset_x = 0;
-  data->offset_y = 0;
+  data->scale         = screen_height / 4252.0f;
+  data->offset_x      = 0;
+  data->offset_y      = 0;
   data->motion_factor = 3.0f;
-  data->cursor_x = 0;
-  data->cursor_y = 0;
-  data->dt = 0.0;
-  data->last_time = SDL_GetPerformanceCounter();
-  data->in_window = false;
+  data->cursor_x      = 0;
+  data->cursor_y      = 0;
+  data->dt            = 0.0;
+  data->last_time     = SDL_GetPerformanceCounter();
+  data->in_window     = true;
   data->pan_direction = NoDirection;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
@@ -84,7 +90,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     return SDL_APP_FAILURE;
   }
   // Load image
-  char *img_path = "assets/tabletop.png";
+  char *img_path           = "assets/tabletop.png";
   SDL_Surface *img_surface = IMG_Load(img_path);
   if (!img_surface) {
     SDL_Log("IMG_Load failed: %s", SDL_GetError());
@@ -99,11 +105,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   SDL_DestroySurface(img_surface);
 
   // TODO add font init
+  *appstate = data;
   return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
-
   AppData *data = (AppData *)appstate;
 
   switch (event->type) {
@@ -120,26 +126,29 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       break;
 
     case SDL_EVENT_MOUSE_WHEEL:
-      if (event->wheel.y > 0) {
-        zoom_to_cursor(data, 1.1f, event->wheel.mouse_x, event->wheel.mouse_y);
-      } else if (event->wheel.y < 0) {
-        zoom_to_cursor(data, 0.9f, event->wheel.mouse_x, event->wheel.mouse_y);
-      }
+      zoom_world(data, event->wheel.y);
       break;
 
     case SDL_EVENT_MOUSE_MOTION:
+      // watch for cursor coordinates
       data->cursor_x = event->motion.x;
       data->cursor_y = event->motion.y;
-
-      if (event->motion.state == SDL_BUTTON_LEFT) {
-        data->offset_x += event->motion.xrel * data->scale * data->motion_factor;
-        data->offset_y += event->motion.yrel * data->scale * data->motion_factor;
-      }
       break;
+      // if (event->motion.state == SDL_BUTTON_LEFT) {
+      //   data->offset_x += event->motion.xrel * data->scale * data->motion_factor;
+      //   data->offset_y += event->motion.yrel * data->scale * data->motion_factor;
+      // }
+      // break;
 
     case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+      data->in_window = false;
+      printf("Mouse Leaved\n");
+      break;
     case SDL_EVENT_WINDOW_MOUSE_ENTER:
-      data->in_window = !data->in_window;
+      data->in_window = true;
+      printf("Mouse Enter\n");
+      break;
+    default:
       break;
   }
 
@@ -147,9 +156,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
-  AppData *data = (AppData *)appstate;
+  AppData *data          = (AppData *)appstate;
   SDL_Renderer *renderer = data->renderer;
-  const bool *keyStates = SDL_GetKeyboardState(NULL);
+  const bool *keyStates  = SDL_GetKeyboardState(NULL);
   if (keyStates[SDL_SCANCODE_W]) {
     data->pan_direction = N;
   }
@@ -175,9 +184,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     data->pan_direction = NE;
   }
   // Delta Time SECTION
-  Uint64 currentTime = SDL_GetPerformanceCounter();
+  Uint64 currentTime  = SDL_GetPerformanceCounter();
   Uint64 elapsedTicks = currentTime - data->last_time;
-  data->last_time = currentTime;
+  data->last_time     = currentTime;
 
   double elapsedSeconds = (double)elapsedTicks / SDL_GetPerformanceFrequency();
   data->dt += elapsedSeconds;
@@ -186,7 +195,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     // Update game logic here using deltaTime
 
     pan_world(data);
-    check_border_out(data);
+    border_out_control(data);
 
     data->dt -= max_frame_time;
   }
@@ -196,8 +205,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
   // ======== Draw here ==============
-  float scale = data->scale;
-  float texture_width = data->gameboard->w;
+  float scale          = data->scale;
+  float texture_width  = data->gameboard->w;
   float texture_height = data->gameboard->h;
 
   SDL_FRect img_rect = {.x = data->offset_x,
@@ -225,24 +234,28 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
 
 // ============================  Functions  ======================================
 
-void zoom_to_cursor(AppData *data, float zoom_factor, int cursor_x, int cursor_y) {
-  float new_scale = data->scale * zoom_factor;
-  if (new_scale <= screen_height / data->gameboard->h) {
-    new_scale = screen_height / data->gameboard->h;
-  }
-  if (new_scale > 1.6f) {
-    new_scale = 1.6f;
-  }
-  float relative_x = (cursor_x - data->offset_x) / data->scale;
-  float relative_y = (cursor_y - data->offset_y) / data->scale;
+void zoom_world(AppData *data, float wheel_y) {
+  if (wheel_y != 0) {
+    float zoom_factor = (wheel_y > 0) ? 1.1f : 0.9f;
+    float new_scale   = data->scale * zoom_factor;
 
-  data->offset_x = cursor_x - relative_x * new_scale;
-  data->offset_y = cursor_y - relative_y * new_scale;
+    if (new_scale <= (float)screen_height / data->gameboard->h) {
+      new_scale = (float)screen_height / data->gameboard->h;
+    }
+    if (new_scale > 1.6f) {
+      new_scale = 1.6f;
+    }
+    float relative_x = (data->cursor_x - data->offset_x) / data->scale;
+    float relative_y = (data->cursor_y - data->offset_y) / data->scale;
 
-  data->scale = new_scale;
+    data->offset_x = data->cursor_x - relative_x * new_scale;
+    data->offset_y = data->cursor_y - relative_y * new_scale;
+
+    data->scale = new_scale;
+  }
 }
 
-void check_border_out(AppData *data) {
+void border_out_control(AppData *data) {
   if (data->offset_x >= 0) {
     data->offset_x = 0;
   }
@@ -258,7 +271,6 @@ void check_border_out(AppData *data) {
 }
 
 void pan_with_screen_edge_touch(AppData *data) {
-
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
       data->pan_direction = W;
