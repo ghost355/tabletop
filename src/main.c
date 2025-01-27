@@ -29,6 +29,7 @@ typedef struct AppData {
   int cursor_x, cursor_y;
   float wheel_y;
   PanDirection pan_direction;
+  const bool *key_states;
 
   double dt;
   Uint64 last_time;
@@ -40,7 +41,8 @@ typedef struct AppData {
 
 void zoom_world(AppData *data);
 void border_out_control(AppData *data);
-void pan_with_screen_edge_touch(AppData *data);
+void handle_cursor_on_screen_edge(AppData *data);
+void handle_pan_with_keys(AppData *data);
 void pan_world(AppData *data);
 
 // ===============================================
@@ -66,6 +68,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->in_window     = true;
   data->pan_direction = NoDirection;
   data->wheel_y       = 0;
+  data->key_states    = NULL;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
     SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -129,13 +132,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       break;
 
     case SDL_EVENT_MOUSE_WHEEL:
-      // NOTE: Is it possible to remove zoom_world to Update Section to update()
       data->wheel_y = event->wheel.y;
-      // zoom_world(data, event->wheel.y);
       break;
 
     case SDL_EVENT_MOUSE_MOTION:
-      // watch for cursor coordinates
       data->cursor_x = event->motion.x;
       data->cursor_y = event->motion.y;
       break;
@@ -155,34 +155,13 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
+
+  // TODO: Here will be update(AppData *date)**
+
   AppData *data          = (AppData *)appstate;
   SDL_Renderer *renderer = data->renderer;
-  const bool *keyStates  = SDL_GetKeyboardState(NULL);
-  if (keyStates[SDL_SCANCODE_W]) {
-    data->pan_direction = N;
-  }
-  if (keyStates[SDL_SCANCODE_S]) {
-    data->pan_direction = S;
-  }
-  if (keyStates[SDL_SCANCODE_A]) {
-    data->pan_direction = W;
-  }
-  if (keyStates[SDL_SCANCODE_D]) {
-    data->pan_direction = E;
-  }
-  if (keyStates[SDL_SCANCODE_S] && keyStates[SDL_SCANCODE_A]) {
-    data->pan_direction = SW;
-  }
-  if (keyStates[SDL_SCANCODE_W] && keyStates[SDL_SCANCODE_A]) {
-    data->pan_direction = NW;
-  }
-  if (keyStates[SDL_SCANCODE_S] && keyStates[SDL_SCANCODE_D]) {
-    data->pan_direction = SE;
-  }
-  if (keyStates[SDL_SCANCODE_W] && keyStates[SDL_SCANCODE_D]) {
-    data->pan_direction = NE;
-  }
-  // Delta Time SECTION
+
+  // =========== Delta Time ===========
   Uint64 currentTime  = SDL_GetPerformanceCounter();
   Uint64 elapsedTicks = currentTime - data->last_time;
   data->last_time     = currentTime;
@@ -190,9 +169,11 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
   double elapsedSeconds = (double)elapsedTicks / SDL_GetPerformanceFrequency();
   data->dt += elapsedSeconds;
 
-  while (data->dt >= max_frame_time) {
-    // Update game logic here using deltaTime
+  data->key_states = SDL_GetKeyboardState(NULL);
 
+  while (data->dt >= max_frame_time) {
+
+    // Update game logic here using deltaTime
     pan_world(data);
     zoom_world(data);
     border_out_control(data);
@@ -204,6 +185,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
+
   // ======== Draw here ==============
   float scale          = data->scale;
   float texture_width  = data->gameboard->w;
@@ -215,14 +197,15 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                         .h = texture_height * scale};
 
   SDL_RenderTexture(renderer, data->gameboard, NULL, &img_rect);
-  // ==================================
 
+  // ==================================
   SDL_RenderPresent(renderer);
 
   return SDL_APP_CONTINUE;
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
+
   AppData *data = (AppData *)appstate;
   SDL_DestroyRenderer(data->renderer);
   SDL_DestroyWindow(data->window);
@@ -271,7 +254,7 @@ void border_out_control(AppData *data) {
   }
 }
 
-void pan_with_screen_edge_touch(AppData *data) {
+void handle_cursor_on_screen_edge(AppData *data) {
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
       data->pan_direction = W;
@@ -301,8 +284,41 @@ void pan_with_screen_edge_touch(AppData *data) {
   }
 }
 
+void handle_pan_with_keys(AppData *data) {
+
+  if (data->key_states) {
+    if (data->key_states[SDL_SCANCODE_W]) {
+      data->pan_direction = N;
+    }
+    if (data->key_states[SDL_SCANCODE_S]) {
+      data->pan_direction = S;
+    }
+    if (data->key_states[SDL_SCANCODE_A]) {
+      data->pan_direction = W;
+    }
+    if (data->key_states[SDL_SCANCODE_D]) {
+      data->pan_direction = E;
+    }
+    if (data->key_states[SDL_SCANCODE_S] && data->key_states[SDL_SCANCODE_A]) {
+      data->pan_direction = SW;
+    }
+    if (data->key_states[SDL_SCANCODE_W] && data->key_states[SDL_SCANCODE_A]) {
+      data->pan_direction = NW;
+    }
+    if (data->key_states[SDL_SCANCODE_S] && data->key_states[SDL_SCANCODE_D]) {
+      data->pan_direction = SE;
+    }
+    if (data->key_states[SDL_SCANCODE_W] && data->key_states[SDL_SCANCODE_D]) {
+      data->pan_direction = NE;
+    }
+  }
+}
+
 void pan_world(AppData *data) {
-  pan_with_screen_edge_touch(data);
+
+  handle_cursor_on_screen_edge(data);
+
+  handle_pan_with_keys(data);
 
   switch (data->pan_direction) {
     case E:
