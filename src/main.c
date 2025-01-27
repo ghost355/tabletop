@@ -6,8 +6,8 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdlib.h>
 
-#define screen_width  (1201 * 2)
-#define screen_height (709 * 2)
+#define screen_width  (1201 * 1.5)
+#define screen_height (709 * 1.5)
 
 #define border_move_zone 10
 #define motion_speed     2000
@@ -28,7 +28,6 @@ typedef struct AppData {
   float motion_factor;
   int cursor_x, cursor_y;
   float wheel_y;
-  PanDirection pan_direction;
   const bool *key_states;
 
   double dt;
@@ -41,8 +40,7 @@ typedef struct AppData {
 
 void zoom_world(AppData *data);
 void border_out_control(AppData *data);
-void handle_cursor_on_screen_edge(AppData *data);
-void handle_pan_with_keys(AppData *data);
+PanDirection handle_pan_input(AppData *data);
 void pan_world(AppData *data);
 
 // ===============================================
@@ -66,7 +64,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->dt            = 0.0;
   data->last_time     = SDL_GetPerformanceCounter();
   data->in_window     = true;
-  data->pan_direction = NoDirection;
   data->wheel_y       = 0;
   data->key_states    = NULL;
 
@@ -254,73 +251,72 @@ void border_out_control(AppData *data) {
   }
 }
 
-void handle_cursor_on_screen_edge(AppData *data) {
+PanDirection handle_pan_input(AppData *data) {
+
+  PanDirection pan_direction = NoDirection;
+
   if (data->in_window) {
     if (data->cursor_x <= border_move_zone) {
-      data->pan_direction = W;
+      pan_direction = W;
     }
     if (data->cursor_x >= screen_width - border_move_zone) {
-      data->pan_direction = E;
+      pan_direction = E;
     }
     if (data->cursor_y <= border_move_zone) {
-      data->pan_direction = N;
+      pan_direction = N;
     }
     if (data->cursor_y >= screen_height - border_move_zone) {
-      data->pan_direction = S;
+      pan_direction = S;
     }
     if (data->cursor_x <= border_move_zone && data->cursor_y <= border_move_zone) {
-      data->pan_direction = NW;
+      pan_direction = NW;
     }
     if (data->cursor_x >= screen_width - border_move_zone && data->cursor_y <= border_move_zone) {
-      data->pan_direction = NE;
+      pan_direction = NE;
     }
     if (data->cursor_x <= border_move_zone && data->cursor_y >= screen_height - border_move_zone) {
-      data->pan_direction = SW;
+      pan_direction = SW;
     }
     if (data->cursor_x >= screen_width - border_move_zone
         && data->cursor_y >= screen_height - border_move_zone) {
-      data->pan_direction = SE;
+      pan_direction = SE;
     }
   }
-}
-
-void handle_pan_with_keys(AppData *data) {
 
   if (data->key_states) {
     if (data->key_states[SDL_SCANCODE_W]) {
-      data->pan_direction = N;
+      pan_direction = N;
     }
     if (data->key_states[SDL_SCANCODE_S]) {
-      data->pan_direction = S;
+      pan_direction = S;
     }
     if (data->key_states[SDL_SCANCODE_A]) {
-      data->pan_direction = W;
+      pan_direction = W;
     }
     if (data->key_states[SDL_SCANCODE_D]) {
-      data->pan_direction = E;
+      pan_direction = E;
     }
     if (data->key_states[SDL_SCANCODE_S] && data->key_states[SDL_SCANCODE_A]) {
-      data->pan_direction = SW;
+      pan_direction = SW;
     }
     if (data->key_states[SDL_SCANCODE_W] && data->key_states[SDL_SCANCODE_A]) {
-      data->pan_direction = NW;
+      pan_direction = NW;
     }
     if (data->key_states[SDL_SCANCODE_S] && data->key_states[SDL_SCANCODE_D]) {
-      data->pan_direction = SE;
+      pan_direction = SE;
     }
     if (data->key_states[SDL_SCANCODE_W] && data->key_states[SDL_SCANCODE_D]) {
-      data->pan_direction = NE;
+      pan_direction = NE;
     }
   }
+  return pan_direction;
 }
 
 void pan_world(AppData *data) {
 
-  handle_cursor_on_screen_edge(data);
+  PanDirection pan_direction = handle_pan_input(data);
 
-  handle_pan_with_keys(data);
-
-  switch (data->pan_direction) {
+  switch (pan_direction) {
     case E:
       data->offset_x -= motion_speed * data->scale * data->dt;
       break;
@@ -353,5 +349,4 @@ void pan_world(AppData *data) {
     default:
       break;
   }
-  data->pan_direction = NoDirection;
 }
