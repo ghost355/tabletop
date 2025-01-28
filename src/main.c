@@ -1,3 +1,4 @@
+#include "SDL3/SDL_keycode.h"
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -33,7 +34,7 @@ typedef struct AppData {
   float scale;
   float offset_x, offset_y;
   int cursor_x, cursor_y;
-  float wheel_y;
+  float zoom_factor;
   const bool *key_states;
   Uint8 pan_direction;
 
@@ -70,7 +71,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
   data->dt            = 0.0;
   data->last_time     = SDL_GetPerformanceCounter();
   data->in_window     = true;
-  data->wheel_y       = 0;
+  data->zoom_factor   = 0;
   data->key_states    = NULL;
   data->pan_direction = 0;
 
@@ -132,11 +133,17 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         case SDLK_Q:
           return SDL_APP_SUCCESS;
           break;
+        case SDLK_EQUALS:
+          data->zoom_factor = 1;
+          break;
+        case SDLK_MINUS:
+          data->zoom_factor = -1;
+          break;
       }
       break;
 
     case SDL_EVENT_MOUSE_WHEEL:
-      data->wheel_y = event->wheel.y;
+      data->zoom_factor = event->wheel.y;
       break;
 
     case SDL_EVENT_MOUSE_MOTION:
@@ -180,7 +187,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     // Update game logic here using deltaTime
     pan_world(data);
 
-    if (data->wheel_y != 0) {
+    if (data->zoom_factor != 0) {
       zoom_world(data);
     }
     border_out_control(data);
@@ -222,7 +229,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
 // ============================  Functions  ======================================
 
 void zoom_world(AppData *data) {
-  float zoom_factor = (data->wheel_y > 0) ? 1.1f : 0.9f;
+  float zoom_factor = (data->zoom_factor > 0) ? 1.1f : 0.9f;
   float new_scale   = data->scale * zoom_factor;
 
   if (new_scale <= (float)screen_height / data->gameboard->h) {
@@ -239,7 +246,7 @@ void zoom_world(AppData *data) {
 
   data->scale = new_scale;
 
-  data->wheel_y = 0;
+  data->zoom_factor = 0;
 }
 
 void border_out_control(AppData *data) {
