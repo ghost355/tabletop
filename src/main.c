@@ -1,4 +1,3 @@
-#include "SDL3/SDL_keycode.h"
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include <SDL3/SDL.h>
@@ -144,6 +143,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
     case SDL_EVENT_MOUSE_WHEEL:
       data->zoom_factor = event->wheel.y;
+      // FIX: for mouse wheel smoothing, because of trackpad works smoothing
+      if (data->zoom_factor > 1.f || data->zoom_factor < 1.1f) {
+        data->zoom_factor *= 0.0001f;
+      }
+      printf("Mouse wheel %f\n", data->zoom_factor);
       break;
 
     case SDL_EVENT_MOUSE_MOTION:
