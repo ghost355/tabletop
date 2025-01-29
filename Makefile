@@ -1,53 +1,61 @@
 # Определяем компилятор
-CC = gcc
+CC = clang
 
-# Опции компилятора: 
-# -Wall включает все предупреждения, 
-# а -g добавляет отладочную информацию
-CFLAGS =  -Wall -g $(shell pkg-config --cflags $(LIBRARY))
+# Имя приложения (без .app)
+APPNAME = Tabletop
 
-# Опции линковщика
-LDFLAGS = $(shell pkg-config --libs $(LIBRARY))
+# Пути для .app bundle
+APPDIR = $(APPNAME).app
+CONTENTSDIR = $(APPDIR)/Contents
+MACOSDIR = $(CONTENTSDIR)/MacOS
+RESOURCESDIR = $(CONTENTSDIR)/Resources
 
-# Определение папок
+# Остальные настройки
+CFLAGS = -Wall -g $(shell pkg-config --cflags $(LIBRARY)) -I$(INCDIR)
+LDFLAGS = $(shell pkg-config --libs $(LIBRARY)) -framework Metal -framework Cocoa
+
 SRCDIR := src
 INCDIR := include
 BUILDDIR := build
+ASSETSDIR := assets
 
-# Имя исполняемого файла
-EXE := $(BUILDDIR)/tabletop
-
-# Получаем список всех .c файлов в папке src
+EXE := $(BUILDDIR)/$(APPNAME)
 SRC := $(wildcard $(SRCDIR)/*.c)
-
-# Получаем список всех .h файлов в папке include
 HDR := $(wildcard $(INCDIR)/*.h)
-
-# Преобразуем список исходных файлов в список объектных файлов
 OBJ := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SRC))
 
-# Объявляем псевдоцели
-.PHONY: all clean run
+.PHONY: all clean app app-run
 
-# Основная цель: создание исполняемого файла
+# Основная цель: обычная сборка без .app
 all: $(EXE)
 
-# Правило для создания исполняемого файла из объектных файлов
+# Сборка .app bundle
+app: $(EXE) Info.plist
+	@echo "Создаем структуру .app..."
+	@mkdir -p $(MACOSDIR)
+	@mkdir -p $(RESOURCESDIR)
+	@cp $(EXE) $(MACOSDIR)/$(APPNAME)
+	@cp Info.plist $(CONTENTSDIR)
+	@cp -r $(ASSETSDIR)/* $(RESOURCESDIR)
+	@touch $(APPDIR)
+
+# Запуск .app bundle
+app-run: app
+	@echo "Запуск приложения..."
+	@open $(APPDIR)
+
+# Правила для основного исполняемого файла
 $(EXE): $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
-# Правило для компиляции каждого .c файла в соответствующий .o файл
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HDR)
-	@mkdir -p $(dir $@) 				# Создаем нужную структуру папок
-	$(CC) $(CFLAGS) -c $< -o $@ # Компиляция .c файла в .o файл
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Цель для очистки проекта
+# Очистка
 clean:
 	rm -rf $(BUILDDIR)
+	rm -rf $(APPDIR)
 
-# Цель для запуска исполняемого файла
-run:
-	$(EXE)
-
-# Библиотека по-умолчанию
-LIBRARY ?= "sdl3 sdl3-image sdl3-ttf"
+# Библиотеки
+LIBRARY ?= sdl3 sdl3-image sdl3-ttf

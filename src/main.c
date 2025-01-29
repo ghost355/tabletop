@@ -62,16 +62,16 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
 
   *data = (AppData){.window = NULL, .renderer = NULL, .font = NULL};
 
-  data->scale         = screen_height / 4252.0f;
-  data->offset_x      = 0;
-  data->offset_y      = 0;
-  data->cursor_x      = 0;
-  data->cursor_y      = 0;
-  data->dt            = 0.0;
-  data->last_time     = SDL_GetPerformanceCounter();
-  data->in_window     = true;
-  data->zoom_factor   = 0;
-  data->key_states    = NULL;
+  data->scale = screen_height / 4252.0f;
+  data->offset_x = 0;
+  data->offset_y = 0;
+  data->cursor_x = 0;
+  data->cursor_y = 0;
+  data->dt = 0.0;
+  data->last_time = SDL_GetPerformanceCounter();
+  data->in_window = true;
+  data->zoom_factor = 0;
+  data->key_states = NULL;
   data->pan_direction = 0;
 
   if (!(SDL_Init(SDL_INIT_VIDEO))) {
@@ -99,7 +99,14 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[]) {
     return SDL_APP_FAILURE;
   }
   // Load image
-  char *img_path           = "assets/tabletop.png";
+  const char *resources_path = SDL_GetBasePath();
+  if (!resources_path) {
+    SDL_Log("SDL_GetBasePath failed: %s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+  char img_path[256];
+  snprintf(img_path, sizeof(img_path), "%s/tabletop.png", resources_path);
+
   SDL_Surface *img_surface = IMG_Load(img_path);
   if (!img_surface) {
     SDL_Log("IMG_Load failed: %s", SDL_GetError());
@@ -147,7 +154,6 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
       if (data->zoom_factor > 1.f || data->zoom_factor < 1.1f) {
         data->zoom_factor *= 0.0001f;
       }
-      printf("Mouse wheel %f\n", data->zoom_factor);
       break;
 
     case SDL_EVENT_MOUSE_MOTION:
@@ -173,13 +179,13 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
   // TODO: Here will be update(AppData *date)**
 
-  AppData *data          = (AppData *)appstate;
+  AppData *data = (AppData *)appstate;
   SDL_Renderer *renderer = data->renderer;
 
   // =========== Delta Time ===========
-  Uint32 currentTime  = SDL_GetPerformanceCounter();
+  Uint32 currentTime = SDL_GetPerformanceCounter();
   Uint32 elapsedTicks = currentTime - data->last_time;
-  data->last_time     = currentTime;
+  data->last_time = currentTime;
 
   double elapsedSeconds = (double)elapsedTicks / SDL_GetPerformanceFrequency();
   data->dt += elapsedSeconds;
@@ -234,7 +240,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
 
 void zoom_world(AppData *data) {
   float zoom_factor = (data->zoom_factor > 0) ? 1.1f : 0.9f;
-  float new_scale   = data->scale * zoom_factor;
+  float new_scale = data->scale * zoom_factor;
 
   if (new_scale <= (float)screen_height / data->gameboard->h) {
     new_scale = (float)screen_height / data->gameboard->h;
